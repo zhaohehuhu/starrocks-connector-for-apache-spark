@@ -1315,4 +1315,59 @@ public class ReadWriteITTest extends ITTestBase {
 
         spark.stop();
     }
+
+    @Test
+    public void testSqlWithDatetimePredicate() throws Exception {
+        String tableName = "testSql_" + genRandomUuid();
+
+        String createStarRocksTable =
+                String.format("CREATE TABLE `%s`.`%s` (" +
+                                "id INT," +
+                                "name STRING," +
+                                "score INT" +
+                                "modified_time DATETIME" +
+                                ") ENGINE=OLAP " +
+                                "PRIMARY KEY(`id`) " +
+                                "DISTRIBUTED BY HASH(`id`) BUCKETS 2 " +
+                                "PROPERTIES (" +
+                                "\"replication_num\" = \"1\"" +
+                                ")",
+                        DB_NAME, tableName);
+        executeSrSQL(createStarRocksTable);
+
+
+        try (Statement statement = DB_CONNECTION.createStatement()) {
+            statement.execute("insert into " + DB_NAME + "." + tableName + " VALUES (1, '2', 3, '2025-07-02 07:35:58.0'), (2, '3', 4, '2025-06-02 07:35:58.0')");
+        }
+
+        SparkSession spark = SparkSession
+                .builder()
+                .master("local[1]")
+                .appName("testSqlWithDatetimePredicate")
+                .getOrCreate();
+
+        String ddl = String.format("CREATE TABLE sr_table \n" +
+                " USING starrocks\n" +
+                "OPTIONS(\n" +
+                "  \"starrocks.table.identifier\"=\"%s\",\n" +
+                "  \"starrocks.fe.http.url\"=\"%s\",\n" +
+                "  \"starrocks.fe.jdbc.url\"=\"%s\",\n" +
+                "  \"starrocks.user\"=\"%s\",\n" +
+                "  \"starrocks.password\"=\"%s\"\n" +
+                ")", String.join(".", DB_NAME, tableName), FE_HTTP, FE_JDBC, USER, PASSWORD);
+
+        spark.sql(ddl);
+
+        List<Row> rows = spark.sql("select id, id, upper(name), modified_time as upper_name from sr_table where modified_time > '2025-07-02 00:00:00'")
+                .collectAsList();
+        Assertions.assertEquals(1, rows.size());
+
+        GenericRowWithSchema row = (GenericRowWithSchema) rows.get(0);
+        Assertions.assertEquals(1, row.schema().fieldIndex("id"));
+        Assertions.assertEquals(2, row.schema().fieldIndex("upper_name"));
+        Assertions.assertEquals(3, row.schema().fieldIndex("modified_time"));
+
+        spark.stop();
+
+    }
 }
