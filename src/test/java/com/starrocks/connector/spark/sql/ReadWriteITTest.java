@@ -1324,7 +1324,7 @@ public class ReadWriteITTest extends ITTestBase {
                 String.format("CREATE TABLE `%s`.`%s` (" +
                                 "id INT," +
                                 "name STRING," +
-                                "score INT" +
+                                "score INT," +
                                 "modified_time DATETIME" +
                                 ") ENGINE=OLAP " +
                                 "PRIMARY KEY(`id`) " +
@@ -1337,7 +1337,7 @@ public class ReadWriteITTest extends ITTestBase {
 
 
         try (Statement statement = DB_CONNECTION.createStatement()) {
-            statement.execute("insert into " + DB_NAME + "." + tableName + " VALUES (1, '2', 3, '2025-07-02 07:35:58.0'), (2, '3', 4, '2025-06-02 07:35:58.0')");
+            statement.execute("insert into " + DB_NAME + "." + tableName + " VALUES (1, '2', 3, '2025-07-02 07:35:58'), (2, '3', 4, '2025-06-02 07:35:58')");
         }
 
         SparkSession spark = SparkSession
